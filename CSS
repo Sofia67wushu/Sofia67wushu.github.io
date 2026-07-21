@@ -1,0 +1,706 @@
+/* ====================================================================
+   КАЛЬКУЛЯТОР ПЕРЕСЧЁТА ИНГРЕДИЕНТОВ ТОРТА
+   --------------------------------------------------------------------
+   Файл: styles.css
+   Назначение: все визуальные стили приложения.
+   
+   Архитектура (по методологии ITCSS):
+     1. CSS-переменные (дизайн-токены)
+     2. Сброс и базовые стили
+     3. Компоненты (карточки, кнопки, поля, таблицы)
+     4. Утилиты и состояния
+     5. Анимации
+     6. Адаптивность (media queries)
+   
+   Дизайн-концепция:
+     • Glassmorphism (эффект матового стекла)
+     • Тёплая "кондитерская" палитра (ягодный + персиковый)
+     • Плавные переходы и микроанимации
+   
+   Автор: Qwen3.7 | Дата: 22.07.2026
+   ==================================================================== */
+
+
+/* ====================================================================
+   1. CSS-ПЕРЕМЕННЫЕ (ДИЗАЙН-ТОКЕНЫ)
+   --------------------------------------------------------------------
+   Единая точка управления цветовой палитрой, радиусами, тенями.
+   Изменение значений здесь автоматически обновит весь интерфейс.
+   ==================================================================== */
+:root {
+    /* --- Цветовая палитра --- */
+    --color-bg-start:     #fef6ec;      /* светлый кремовый фон (начало градиента) */
+    --color-bg-end:       #fde2d4;      /* персиковый фон (конец градиента) */
+    --color-primary:      #c2185b;      /* ягодный акцент (основной цвет бренда) */
+    --color-primary-dark: #8e0e3f;      /* тёмный вариант для заголовков */
+    --color-accent:       #ff8a65;      /* оранжевый акцент (для градиентов) */
+    --color-text:         #3b2a20;      /* шоколадный — основной цвет текста */
+    --color-muted:        #8a7568;      /* приглушённый — вторичный текст */
+    --color-card:         rgba(255, 255, 255, 0.75); /* полупрозрачный фон карточек */
+    --color-border:       rgba(194, 24, 91, 0.15);  /* тонкие границы */
+    --color-success:      #2e7d32;      /* зелёный — для позитивных состояний */
+    --color-danger:       #c62828;      /* красный — для ошибок */
+
+    /* --- Геометрия (скругления углов) --- */
+    --radius-sm: 10px;   /* мелкие элементы (поля ввода, кнопки) */
+    --radius-md: 18px;   /* средние блоки (внутренние карточки) */
+    --radius-lg: 28px;   /* крупные блоки (основные карточки) */
+
+    /* --- Тени --- */
+    --shadow-soft: 0 10px 40px -15px rgba(194, 24, 91, 0.25);
+    --shadow-card: 0 20px 60px -20px rgba(142, 14, 63, 0.35);
+
+    /* --- Переходы --- */
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* ====================================================================
+   2. СБРОС И БАЗОВЫЕ СТИЛИ
+   --------------------------------------------------------------------
+   Унифицируем поведение элементов во всех браузерах.
+   ==================================================================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth; /* плавная прокрутка по якорям */
+}
+
+body {
+    /* Типографика */
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont,
+                 'Roboto', 'Helvetica Neue', sans-serif;
+    color: var(--color-text);
+    line-height: 1.5;
+
+    /* Геометрия */
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+
+    /* Фон: многослойный градиент с декоративными "пятнами" */
+    background:
+        radial-gradient(circle at 10% 20%, rgba(255, 138, 101, 0.25), transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(194, 24, 91, 0.18), transparent 45%),
+        linear-gradient(135deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+    background-attachment: fixed; /* фон не прокручивается — эффект глубины */
+}
+
+
+/* ====================================================================
+   3. КОМПОНЕНТЫ
+   ==================================================================== */
+
+/* --------------------------------------------------------------------
+   3.1. Контейнер приложения
+   -------------------------------------------------------------------- */
+.app {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------
+   3.2. Шапка сайта
+   -------------------------------------------------------------------- */
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fadeInDown 0.8s ease-out;
+}
+
+.header__icon {
+    font-size: 64px;
+    display: inline-block;
+    margin-bottom: 12px;
+    /* Лёгкое "покачивание" иконки — привлекает внимание */
+    animation: wiggle 3s ease-in-out infinite;
+}
+
+.header__title {
+    font-size: clamp(28px, 4vw, 42px); /* адаптивный размер */
+    font-weight: 800;
+    /* Градиентный текст — ягодный → оранжевый */
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+}
+
+.header__subtitle {
+    color: var(--color-muted);
+    font-size: 16px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------
+   3.3. Карточки (glassmorphism)
+   -------------------------------------------------------------------- */
+.card {
+    /* Полупрозрачный фон + размытие = эффект матового стекла */
+    background: var(--color-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+
+    /* Плавная реакция на hover */
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 25px 70px -20px rgba(142, 14, 63, 0.4);
+}
+
+.card__title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--color-primary-dark);
+}
+
+/* Иконка-бейдж в заголовке карточки */
+.card__title-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #fff;
+    box-shadow: 0 6px 16px -4px rgba(194, 24, 91, 0.5);
+}
+
+/* --------------------------------------------------------------------
+   3.4. Сетка форм (исходная / новая)
+   -------------------------------------------------------------------- */
+.forms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* Блок одной формы */
+.form-block {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-md);
+    padding: 22px;
+    border: 1px solid var(--color-border);
+}
+
+/* Метка "Исходная / Новая" — цветовой индикатор */
+.form-block__label {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+}
+
+.form-block--old .form-block__label {
+    background: rgba(194, 24, 91, 0.12);
+    color: var(--color-primary);
+}
+
+.form-block--new .form-block__label {
+    background: rgba(46, 125, 50, 0.12);
+    color: var(--color-success);
+}
+
+/* --------------------------------------------------------------------
+   3.5. Сегментированный переключатель типа формы
+   -------------------------------------------------------------------- */
+.shape-switcher {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 18px;
+    border: 1px solid var(--color-border);
+}
+
+.shape-switcher__btn {
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.shape-switcher__btn:hover {
+    color: var(--color-primary);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* Активная кнопка — градиентный фон */
+.shape-switcher__btn.is-active {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: #fff;
+    box-shadow: 0 4px 12px -2px rgba(194, 24, 91, 0.4);
+}
+
+.shape-switcher__icon {
+    font-size: 18px;
+}
+
+/* --------------------------------------------------------------------
+   3.6. Поля ввода
+   -------------------------------------------------------------------- */
+.field {
+    margin-bottom: 14px;
+}
+
+.field__label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 6px;
+}
+
+.field__input-wrap {
+    position: relative;
+}
+
+.field__input {
+    width: 100%;
+    padding: 12px 50px 12px 16px; /* правый отступ под единицы измерения */
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--color-text);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1.5px solid transparent;
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: all var(--transition);
+}
+
+.field__input:hover {
+    background: #fff;
+}
+
+.field__input:focus {
+    border-color: var(--color-primary);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(194, 24, 91, 0.1); /* "свечение" при фокусе */
+}
+
+/* Единица измерения внутри поля */
+.field__unit {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-muted);
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none; /* клик проходит сквозь элемент */
+}
+
+/* --------------------------------------------------------------------
+   3.7. Таблица ингредиентов
+   -------------------------------------------------------------------- */
+.ingredients {
+    width: 100%;
+    border-collapse: separate; /* нужно для скругления углов строк */
+    border-spacing: 0 8px;     /* вертикальный отступ между строками */
+}
+
+.ingredients thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--color-muted);
+    padding: 0 12px 8px;
+}
+
+.ingredients tbody tr {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+
+.ingredients tbody tr:hover {
+    background: rgba(255, 255, 255, 0.85);
+    transform: translateX(2px);
+}
+
+.ingredients td {
+    padding: 6px 8px;
+}
+
+/* Скругление углов только у первой и последней ячейки строки */
+.ingredients td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.ingredients td:last-child  { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+
+.ingredients input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text);
+    background: transparent;
+    border: 1.5px solid transparent;
+    border-radius: 8px;
+    outline: none;
+    transition: all var(--transition);
+}
+
+.ingredients input:focus {
+    background: #fff;
+    border-color: var(--color-primary);
+}
+
+.ingredients input[type="number"] {
+    text-align: right; /* числа — по правому краю */
+}
+
+/* Кнопка удаления строки */
+.btn-remove {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(198, 40, 40, 0.1);
+    color: var(--color-danger);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove:hover {
+    background: var(--color-danger);
+    color: #fff;
+    transform: rotate(90deg); /* поворот крестика при наведении */
+}
+
+/* --------------------------------------------------------------------
+   3.8. Кнопки действий
+   -------------------------------------------------------------------- */
+.actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
+}
+
+/* Основная кнопка — градиент */
+.btn--primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: #fff;
+    box-shadow: 0 10px 25px -5px rgba(194, 24, 91, 0.5);
+}
+
+.btn--primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px -5px rgba(194, 24, 91, 0.6);
+}
+
+.btn--primary:active {
+    transform: translateY(0);
+}
+
+/* Вторичная кнопка — светлая с обводкой */
+.btn--secondary {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--color-primary);
+    border: 1.5px solid var(--color-border);
+}
+
+.btn--secondary:hover {
+    background: #fff;
+    border-color: var(--color-primary);
+}
+
+/* Призрачная кнопка — для второстепенных действий */
+.btn--ghost {
+    background: transparent;
+    color: var(--color-primary);
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
+.btn--ghost:hover {
+    background: rgba(194, 24, 91, 0.08);
+}
+
+/* --------------------------------------------------------------------
+   3.9. Блок результатов
+   -------------------------------------------------------------------- */
+.result {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.result.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Блок с коэффициентом */
+.coefficient {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg,
+        rgba(194, 24, 91, 0.08),
+        rgba(255, 138, 101, 0.08));
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    border: 1px dashed var(--color-primary);
+    flex-wrap: wrap;
+}
+
+.coefficient__label {
+    font-size: 14px;
+    color: var(--color-muted);
+    font-weight: 600;
+}
+
+.coefficient__value {
+    font-size: 36px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-variant-numeric: tabular-nums; /* моноширинные цифры */
+}
+
+.coefficient__areas {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.coefficient__area {
+    text-align: center;
+}
+
+.coefficient__area-label {
+    font-size: 11px;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.coefficient__area-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+/* Таблица результатов */
+.result-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.result-table thead {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: #fff;
+}
+
+.result-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.result-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 15px;
+}
+
+.result-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.result-table tbody tr {
+    transition: background var(--transition);
+}
+
+.result-table tbody tr:hover {
+    background: rgba(194, 24, 91, 0.04);
+}
+
+/* Старое значение — перечёркнуто */
+.result-table .qty-old {
+    color: var(--color-muted);
+    text-decoration: line-through;
+    font-size: 13px;
+    margin-right: 8px;
+}
+
+/* Новое значение — яркое и крупное */
+.result-table .qty-new {
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------
+   3.10. Информационные блоки (notice)
+   -------------------------------------------------------------------- */
+.notice {
+    padding: 16px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.notice--info {
+    background: rgba(194, 24, 91, 0.06);
+    color: var(--color-primary-dark);
+    border-left: 3px solid var(--color-primary);
+}
+
+.notice--error {
+    background: rgba(198, 40, 40, 0.08);
+    color: var(--color-danger);
+    border-left: 3px solid var(--color-danger);
+}
+
+/* --------------------------------------------------------------------
+   3.11. Футер
+   -------------------------------------------------------------------- */
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    color: var(--color-muted);
+    font-size: 13px;
+}
+
+
+/* ====================================================================
+   4. АНИМАЦИИ (keyframes)
+   ==================================================================== */
+
+/* Плавное появление сверху */
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* "Покачивание" иконки торта */
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-8deg); }
+    75%      { transform: rotate(8deg); }
+}
+
+
+/* ====================================================================
+   5. АДАПТИВНОСТЬ (MEDIA QUERIES)
+   ==================================================================== */
+
+/* Планшеты и меньше — одна колонка */
+@media (max-width: 768px) {
+    .forms-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Смартфоны — карточный вид таблицы ингредиентов */
+@media (max-width: 600px) {
+    .card {
+        padding: 20px;
+    }
+
+    /* Скрываем заголовки таблицы */
+    .ingredients thead {
+        display: none;
+    }
+
+    /* Превращаем строки в карточки */
+    .ingredients,
+    .ingredients tbody,
+    .ingredients tr,
+    .ingredients td {
+        display: block;
+        width: 100%;
+    }
+
+    .ingredients tr {
+        padding: 12px;
+        margin-bottom: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .ingredients td {
+        padding: 0;
+    }
+
+    /* Псевдоэлементы с названиями полей (берутся из data-label) */
+    .ingredients td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 11px;
+        color: var(--color-muted);
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+}

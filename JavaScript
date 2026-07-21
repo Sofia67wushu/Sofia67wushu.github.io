@@ -1,0 +1,383 @@
+/**
+ * ====================================================================
+ * КАЛЬКУЛЯТОР ПЕРЕСЧЁТА ИНГРЕДИЕНТОВ ТОРТА
+ * --------------------------------------------------------------------
+ * Файл: script.js
+ * Назначение: бизнес-логика приложения (компонент Alpine.js).
+ *
+ * Архитектура:
+ *   • cakeCalculator() — функция-фабрика состояния Alpine.js
+ *   • Математическая модель:
+ *       - При одинаковой высоте торта объём ∝ площади основания
+ *       - Коэффициент K = S_new / S_old
+ *       - Новое количество = старое × K
+ *   • Площади форм:
+ *       - Круг:         S = π × (d/2)²
+ *       - Квадрат:      S = a²
+ *       - Прямоугольник: S = a × b
+ *
+ * Зависимости:
+ *   • Alpine.js 3.x — реактивность UI
+ *   • Anime.js  3.x — анимации результатов
+ *
+ * Автор: Qwen3.7 | Дата: 22.07.2026
+ * ====================================================================
+ */
+
+/* ====================================================================
+   КОНФИГУРАЦИЯ (константы приложения)
+   --------------------------------------------------------------------
+   Вынесены отдельно для удобства изменения и переиспользования.
+   ==================================================================== */
+
+/**
+ * Список доступных типов форм.
+ * Используется для отрисовки сегментированных переключателей.
+ * @type {Array<{id: string, label: string, icon: string}>}
+ */
+const SHAPES = Object.freeze([
+    { id: 'circle', label: 'Круг',     icon: '⭕' },
+    { id: 'square', label: 'Квадрат',  icon: '🟦' },
+    { id: 'rect',   label: 'Прямоуг.', icon: '▬' }
+]);
+
+/**
+ * Начальные размеры форм по умолчанию (в сантиметрах).
+ * @type {Object}
+ */
+const DEFAULT_DIMS = Object.freeze({
+    old: {
+        circle: { d: 22 },
+        square: { a: 20 },
+        rect:   { a: 30, b: 20 }
+    },
+    newCircle: { d: 26 },
+    newSquare: { a: 24 },
+    newRect:   { a: 35, b: 25 }
+});
+
+/**
+ * Демо-рецепт для первоначального заполнения.
+ * Типовой бисквит для круглой формы Ø22 см.
+ * @type {Array<{name: string, qty: number, unit: string}>}
+ */
+const DEMO_RECIPE = Object.freeze([
+    { name: 'Мука пшеничная',  qty: 200, unit: 'г' },
+    { name: 'Сахар',           qty: 180, unit: 'г' },
+    { name: 'Яйца',            qty: 4,   unit: 'шт' },
+    { name: 'Сливочное масло', qty: 100, unit: 'г' },
+    { name: 'Молоко',          qty: 120, unit: 'мл' },
+    { name: 'Разрыхлитель',    qty: 2,   unit: 'ч.л.' }
+]);
+
+
+/* ====================================================================
+   ФАБРИКА СОСТОЯНИЯ ALPINE.JS
+   --------------------------------------------------------------------
+   Возвращает объект с реактивными данными и методами.
+   Alpine.js автоматически делает все свойства реактивными.
+   ==================================================================== */
+
+/**
+ * cakeCalculator — фабрика состояния компонента.
+ * @returns {Object} Объект с данными и методами для Alpine.js.
+ */
+function cakeCalculator() {
+    return {
+
+        /* ============================================================
+           РЕАКТИВНЫЕ ДАННЫЕ
+           ============================================================ */
+
+        /** Список типов форм (константа из конфигурации) */
+        shapes: SHAPES,
+
+        /** Тип выбранной исходной формы */
+        oldShape: 'circle',
+
+        /** Тип выбранной новой формы */
+        newShape: 'circle',
+
+        /** Размеры исходной формы (по типам, чтобы значения сохранялись) */
+        old: {
+            circle: { ...DEFAULT_DIMS.old.circle },
+            square: { ...DEFAULT_DIMS.old.square },
+            rect:   { ...DEFAULT_DIMS.old.rect }
+        },
+
+        /** Размеры новой формы (отдельные объекты для удобства) */
+        newCircle: { ...DEFAULT_DIMS.newCircle },
+        newSquare: { ...DEFAULT_DIMS.newSquare },
+        newRect:   { ...DEFAULT_DIMS.newRect },
+
+        /**
+         * Список ингредиентов.
+         * Структура: { id: string, name: string, qty: number, unit: string }
+         * @type {Array<Object>}
+         */
+        ingredients: [],
+
+        /**
+         * Результат последнего пересчёта.
+         * Структура: { k: number, sOld: number, sNew: number, rows: Array }
+         * @type {Object|null}
+         */
+        result: null,
+
+        /** Сообщение об ошибке валидации (пустая строка = нет ошибки) */
+        error: '',
+
+
+        /* ============================================================
+           ИНИЦИАЛИЗАЦИЯ
+           ============================================================ */
+
+        /**
+         * init() — вызывается Alpine.js при монтировании компонента.
+         * Заполняет список ингредиентов демо-рецептом.
+         */
+        init() {
+            this.ingredients = DEMO_RECIPE.map(item => ({
+                id:   this._uid(),
+                name: item.name,
+                qty:  item.qty,
+                unit: item.unit
+            }));
+        },
+
+
+        /* ============================================================
+           УТИЛИТЫ
+           ============================================================ */
+
+        /**
+         * Генератор уникальных ID для ингредиентов.
+         * Простая реализация без внешних зависимостей.
+         * @returns {string} Уникальный идентификатор.
+         */
+        _uid() {
+            return 'ing_' + Math.random().toString(36).slice(2, 10);
+        },
+
+        /**
+         * Округление числа до заданного количества знаков.
+         * @param {number} value    — исходное число
+         * @param {number} decimals — количество знаков после запятой
+         * @returns {number} Округлённое значение.
+         */
+        _round(value, decimals) {
+            const factor = Math.pow(10, decimals);
+            return Math.round(value * factor) / factor;
+        },
+
+
+        /* ============================================================
+           УПРАВЛЕНИЕ СПИСКОМ ИНГРЕДИЕНТОВ
+           ============================================================ */
+
+        /**
+         * Добавляет пустую строку ингредиента в конец списка.
+         */
+        addIngredient() {
+            this.ingredients.push({
+                id:   this._uid(),
+                name: '',
+                qty:  null,
+                unit: 'г'
+            });
+        },
+
+        /**
+         * Удаляет ингредиент по индексу.
+         * @param {number} index — индекс в массиве ingredients.
+         */
+        removeIngredient(index) {
+            this.ingredients.splice(index, 1);
+        },
+
+
+        /* ============================================================
+           МАТЕМАТИЧЕСКАЯ МОДЕЛЬ
+           ============================================================ */
+
+        /**
+         * Вычисляет площадь формы по её типу и размерам.
+         * @param {string} shape — тип формы: 'circle' | 'square' | 'rect'
+         * @param {Object} dims  — объект с размерами (d / a / a,b)
+         * @returns {number} Площадь в см².
+         */
+        getArea(shape, dims) {
+            switch (shape) {
+                case 'circle':
+                    // S = π × (d/2)²
+                    return Math.PI * Math.pow(dims.d / 2, 2);
+                case 'square':
+                    // S = a²
+                    return Math.pow(dims.a, 2);
+                case 'rect':
+                    // S = a × b
+                    return dims.a * dims.b;
+                default:
+                    return 0;
+            }
+        },
+
+        /**
+         * Возвращает объект размеров новой формы по её типу.
+         * @returns {Object} Размеры (d / a / a,b).
+         */
+        _getNewDims() {
+            switch (this.newShape) {
+                case 'circle': return this.newCircle;
+                case 'square': return this.newSquare;
+                case 'rect':   return this.newRect;
+            }
+        },
+
+
+        /* ============================================================
+           ВАЛИДАЦИЯ
+           ============================================================ */
+
+        /**
+         * Проверяет корректность введённых данных.
+         * @returns {string|null} Текст ошибки или null, если всё ок.
+         */
+        _validate() {
+            // 1. Размеры исходной формы
+            const oldDims = this.old[this.oldShape];
+            for (const key in oldDims) {
+                const v = parseFloat(oldDims[key]);
+                if (!v || v <= 0) {
+                    return `Укажите корректный размер исходной формы (поле "${key}").`;
+                }
+            }
+
+            // 2. Размеры новой формы
+            const newDims = this._getNewDims();
+            for (const key in newDims) {
+                const v = parseFloat(newDims[key]);
+                if (!v || v <= 0) {
+                    return `Укажите корректный размер новой формы (поле "${key}").`;
+                }
+            }
+
+            // 3. Наличие хотя бы одного валидного ингредиента
+            const valid = this.ingredients.filter(i => i.name && i.qty > 0);
+            if (valid.length === 0) {
+                return 'Добавьте хотя бы один ингредиент с названием и количеством.';
+            }
+
+            return null;
+        },
+
+
+        /* ============================================================
+           ОСНОВНОЙ РАСЧЁТ
+           ============================================================ */
+
+        /**
+         * calculate() — выполняет пересчёт ингредиентов.
+         *
+         * Алгоритм:
+         *   1. Валидация входных данных
+         *   2. Вычисление площадей старой и новой форм
+         *   3. Расчёт коэффициента K = S_new / S_old
+         *   4. Умножение каждого ингредиента на K
+         *   5. Запуск анимации появления результата
+         */
+        calculate() {
+            // Сбрасываем предыдущее состояние
+            this.error  = '';
+            this.result = null;
+
+            // 1. Валидация
+            const err = this._validate();
+            if (err) {
+                this.error = err;
+                return;
+            }
+
+            // 2. Площади
+            const sOld = this.getArea(this.oldShape, this.old[this.oldShape]);
+            const sNew = this.getArea(this.newShape, this._getNewDims());
+
+            // 3. Коэффициент пересчёта
+            const k = sNew / sOld;
+
+            // 4. Пересчёт ингредиентов (фильтруем пустые строки)
+            const rows = this.ingredients
+                .filter(i => i.name && i.qty > 0)
+                .map(i => ({
+                    name:   i.name,
+                    oldQty: this._round(i.qty, 2),
+                    newQty: this._round(i.qty * k, 1),
+                    unit:   i.unit || ''
+                }));
+
+            // Сохраняем результат
+            this.result = { k, sOld, sNew, rows };
+
+            // 5. Анимация (после обновления DOM)
+            this.$nextTick(() => this._animateResult());
+        },
+
+
+        /* ============================================================
+           АНИМАЦИЯ РЕЗУЛЬТАТА (Anime.js)
+           ============================================================ */
+
+        /**
+         * Запускает каскадную анимацию появления блока результатов.
+         * Использует Anime.js для плавного появления строк таблицы.
+         */
+        _animateResult() {
+            // Проверяем, что библиотека доступна
+            if (typeof anime === 'undefined') return;
+
+            // Анимация блока коэффициента
+            anime({
+                targets: '.coefficient',
+                translateY: [20, 0],
+                opacity: [0, 1],
+                duration: 600,
+                easing: 'easeOutCubic'
+            });
+
+            // Каскадная анимация строк таблицы (с задержкой друг за другом)
+            anime({
+                targets: '.result-table tbody tr',
+                translateX: [-30, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(80, { start: 300 }),
+                duration: 500,
+                easing: 'easeOutCubic'
+            });
+        },
+
+
+        /* ============================================================
+           СБРОС
+           ============================================================ */
+
+        /**
+         * resetAll() — возвращает приложение в исходное состояние.
+         * Сбрасывает формы, ингредиенты и результат.
+         */
+        resetAll() {
+            this.oldShape  = 'circle';
+            this.newShape  = 'circle';
+            this.old       = {
+                circle: { ...DEFAULT_DIMS.old.circle },
+                square: { ...DEFAULT_DIMS.old.square },
+                rect:   { ...DEFAULT_DIMS.old.rect }
+            };
+            this.newCircle = { ...DEFAULT_DIMS.newCircle };
+            this.newSquare = { ...DEFAULT_DIMS.newSquare };
+            this.newRect   = { ...DEFAULT_DIMS.newRect };
+            this.result    = null;
+            this.error     = '';
+            this.init();
+        }
+    };
+}
